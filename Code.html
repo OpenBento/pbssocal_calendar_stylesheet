@@ -1,0 +1,221 @@
+<style>
+    /*-----------------------------------------------------------------------------
+[client]            Events Calendar Stylesheet
+
+author:             Michael Guild and Samuel Seide
+email:              michaelguild13@gmail.com and sseide@oeta.tv
+website:            http://michaelguild13.wordpress.com/ and oeta.tv
+-----------------------------------------------------------------------------*/
+
+.calendar, .events{
+	display: inline;
+    vertical-align: top;
+    width: 40%;
+    float: left;
+}
+.events {
+	margin-left:15px;
+}
+.events .event {
+	margin-top:15px;
+	border-bottom:1px dashed #CCC;
+	width:auto;
+}
+.events .event h2 {
+	font-size:2.0em;
+        color:#{{primary_color}};
+}
+.events .event .event-description {
+	word-wrap: break-word;
+}
+.calendar{
+	width: auto;
+}
+.right-rail .events, .right-rail .calendar, .eight.columns .events, .eight.columns .calendar {
+	float: none;
+	width: auto;
+}
+.right-rail .events, .eight.columns .events {
+	margin-right: 0;
+}
+
+@media (max-width: 600px) {
+	.events, .calendar {
+		width: auto;
+		float: none;
+	}
+}
+
+.ui-datepicker-header{
+	position: relative;
+	padding: 15px 0;
+}
+.ui-datepicker-prev,
+.ui-datepicker-next,
+.ui-datepicker-title {
+	position: absolute;
+	top: 0;
+	font-size: 12px;
+  	line-height: 18px;
+  	color: #{{secondary_color}};
+  	cursor: pointer;
+}
+.ui-datepicker-prev{ left: 0; }
+.ui-datepicker-next{ right: 0;}
+.ui-datepicker-title{
+	width: 50%;
+	left: 25%;
+	text-align: center;
+	cursor:default;
+}
+
+.ui-datepicker-calendar thead{
+	text-align: center;
+}
+.ui-datepicker-calendar tbody{
+	text-align: right;
+}
+.ui-datepicker-calendar th{
+	font-size: 12px;
+	font-weight: normal;
+	text-transform: uppercase;
+        color: #{{ primary_color }};
+}
+.ui-datepicker-calendar td{
+	width: 33px; /* change depending on whether cells should shrink on browser scale */
+	height: 33px;
+	font-size: 20px;
+	line-height: 20px;
+	color: #fff;
+	vertical-align: bottom;
+        background: #{{ secondary_color }};
+	padding: 0 5px 5px 0;
+	border: 1px solid #fff;
+	text-align: center;
+}
+.ui-datepicker-calendar td a,
+.ui-datepicker-calendar td a:link,
+.ui-datepicker-calendar td a:visited,
+    .ui-datepicker-calendar td a:hover{ color: #{{ numbering_color }}; text-decoration: none; cursor:default;}
+
+.ui-datepicker-calendar td.ui-datepicker-unselectable {
+        background: #{{ tertiary_color }};
+}
+.ui-datepicker-calendar td.highlight{
+        background: #{{ primary_color }};
+}
+
+.ui-datepicker-calendar td.highlight a,
+.ui-datepicker-calendar td.highlight a:link,
+.ui-datepicker-calendar td.highlight a:visited,
+.ui-datepicker-calendar td.highlight a:hover{
+	cursor: pointer;
+}
+
+    .ui-datepicker-calendar td.ui-datepicker-today a { color: #{{secondary_color}}; }
+    .ui-datepicker-calendar td.ui-datepicker-current-day a { color: #{{secondary_color}}; }
+
+    .ui-datepicker-calendar td.ui-datepicker-today{ outline: 2px solid #{{ secondary_color}}; background: #{{ tertiary_color }};}
+    .ui-datepicker-calendar td.ui-datepicker-current-day{ outline: 2px solid #{{ secondary_color }}; background: #{{ numbering_color }}; }
+    p { color: #{{secondary_color}}; }
+    
+    .calendar, .events {width: 48%}
+
+</style>
+
+{% load sekizai_tags %}
+
+{% addtoblock "js" %}
+<script>
+        function GoogleEventCalendar(calendarElement) {
+    this.calendarElement = calendarElement;
+    this.events = [];
+    // google protocol - https://developers.google.com/gdata/docs/2.0/reference
+
+    this._build_html_event = function(event){
+        var el = jQuery('<div />').addClass('event');
+        jQuery('<h2 />').text(event.Title).appendTo(el);
+        
+        
+        jQuery('<p />').addClass('event-description').html(event.Description).appendTo(el);
+        return el;
+    };
+
+    this.getEvents = function(json_data){
+        var events = [];
+        jQuery.each(json_data.feed.entry, function(i){
+            var str_date = json_data.feed.entry[i]['gd$when'][0].startTime;
+            var date = jQuery.datepicker.parseDate('yy-mm-dd', str_date.split('T')[0]);
+            events[i] = {
+                Title:        json_data.feed.entry[i].title['$t'],
+                Date:         date,
+                Description:  json_data.feed.entry[i].content['$t'],
+            };
+        });
+        return events;
+    };
+
+    this.makeCalendarView = function(){
+        var self = this;
+        var calendarBox = jQuery(this.calendarElement);
+        calendarBox.children(".calendar").datepicker({
+            dayNamesShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+            dayNamesMin: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+            beforeShowDay: function(date) {
+                for(var i=0; i<self.events.length; i++) {
+                    if(self.events[i].Date.valueOf() === date.valueOf()){
+                        return [true, 'highlight', null];
+                    }
+                }
+                return [true, '', null];
+            },
+            onChangeMonthYear: function(year, month){
+                var _calendar = jQuery(this);
+                calendarBox.children(".events").html("");
+                self.eventsByMonth(year, month - 1, function(){
+                    _calendar.datepicker('refresh');
+                });
+            },
+            onSelect: function(dateText) {
+                var date, html='',
+                    selectedDate = new Date(dateText).toString();
+                calendarBox.children(".events").html("");
+                jQuery.each(self.events, function(i){
+                    var datecheck = new Date(self.events[i].Date).toString();
+                    if(datecheck === selectedDate){
+                        self._build_html_event(self.events[i]).appendTo(calendarBox.children(".events"));
+                    }
+                });
+            }
+        });
+    };
+
+    this.eventsByMonth = function(year, month, callback){
+        var self = this;
+        var startOfMonth = formatRFC3339(new Date(year, month, 1));
+        var nextMonth = new Date(year, month + 1, 1);
+        var endOfMonth = formatRFC3339(new Date(nextMonth-1));
+        var calendar = jQuery(this.calendarElement).children("[name='data-calendar-id']").val();
+
+        jQuery.ajax({
+            url: "/eventcalendar/events_calendar/" + calendar + '/' + encodeURIComponent(startOfMonth) + '/' + encodeURIComponent(endOfMonth) + '/',
+            dataType: "json",
+            success: function(data){
+                self.events = data.feed.entry !== undefined ? self.getEvents(data) : [];
+                callback();
+            }
+        });
+    };
+
+    GoogleEventCalendar.prototype.build_calendar = function() {
+        var now = new Date();
+        var self = this;
+        this.events = this.eventsByMonth(now.getFullYear(), now.getMonth(), function(){
+            self.makeCalendarView();
+        });
+    };
+
+}
+</script>
+
+{% endaddtoblock %}
